@@ -5,6 +5,8 @@ import re
 from dotenv import load_dotenv
 import os
 from os.path import join, dirname
+import googleapiclient.discovery
+import google.auth
 
 # TODO:
 # ・日付指定できるようにする。
@@ -18,6 +20,18 @@ from os.path import join, dirname
 # ・「合唱 演奏会 開催」と記入されていないものや日付がなかったり不完全なもの（2021/11開催予定）などは検知されないので、
 # ハッシュタグで検知する機能の追加、もしくはフォローしていると「演奏会 開催」だけで検知
 # ・開催地の検知
+
+# 編集スコープの設定(今回は読み書き両方OKの設定)
+SCOPES = ['https://www.googleapis.com/auth/calendar']
+# カレンダーIDの設定(基本的には自身のgmailのアドレス)
+calendar_id = 'kenshiro.toptenor@gmail.com'
+    
+# 認証ファイルを使用して認証用オブジェクトを作成
+gapi_creds = google.auth.load_credentials_from_file('credentials.json', SCOPES)[0]
+    
+# 認証用オブジェクトを使用してAPIを呼び出すためのオブジェクト作成
+service = googleapiclient.discovery.build('calendar', 'v3', credentials=gapi_creds)
+
 
 dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
@@ -65,9 +79,27 @@ for tweet_json in tweets:
             #print(ent.text, ent.start_char, ent.end_char, ent.label_)
             date = convDate(ent.text)
             if date != 0:
+                # 追加するスケジュールの情報を設定
+                event= {
+                    # 予定のタイトル
+                    'summary': tweet['user']['name'],
+                    # 予定の開始時刻(ISOフォーマットで指定)
+                    'start': {
+                        'dateTime': date.isoformat(),
+                        'timeZone': 'Japan'
+                    },
+                    # 予定の終了時刻(ISOフォーマットで指定)
+                    'end': {
+                        'dateTime': date.isoformat(),
+                        'timeZone': 'Japan'
+                    },
+                }
+
+                # 予定を追加する
+                event = service.events().insert(calendarId = calendar_id, body = event).execute()
                 print(tweet['user']['name'], date.strftime("%Y/%m/%d"), "https://twitter.com/user/status/{}".format(tweet['id']))
-            #else:
-                #print("date undefined {}".format(ent.text))
+                    #else:
+                        #print("date undefined {}".format(ent.text))
             break
 # 合唱団(twitterアカウント名)、日付、(場所)、origin_url
 
